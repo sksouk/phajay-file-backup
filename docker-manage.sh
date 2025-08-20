@@ -35,9 +35,63 @@ print_error() {
 # Function to check if Docker is running
 check_docker() {
     if ! docker info >/dev/null 2>&1; then
-        print_error "Docker is not running. Please start Docker first."
-        exit 1
+        print_warning "Docker is not running. Attempting to start Docker..."
+        
+        # Check if user is in docker group
+        if groups "$USER" | grep -q '\bdocker\b'; then
+            print_status "User is in docker group - no sudo required."
+            USE_SUDO=""
+        else
+            print_warning "User is not in docker group - sudo required."
+            print_status "To avoid using sudo, run: sudo usermod -aG docker \$USER && newgrp docker"
+            USE_SUDO="sudo "
+        fi
+        
+        # Try to start Docker based on the system
+        if command -v systemctl >/dev/null 2>&1; then
+            # SystemD (most modern Linux distributions including Arch)
+            print_status "Starting Docker with systemctl..."
+            if ${USE_SUDO}systemctl start docker; then
+                print_success "Docker started successfully."
+                sleep 3  # Wait for Docker to fully initialize
+            else
+                print_error "Failed to start Docker with systemctl."
+                print_error "Please run: ${USE_SUDO}systemctl start docker"
+                print_error "Or add your user to docker group: sudo usermod -aG docker \$USER"
+                exit 1
+            fi
+        elif command -v service >/dev/null 2>&1; then
+            # SysV init
+            print_status "Starting Docker with service command..."
+            if ${USE_SUDO}service docker start; then
+                print_success "Docker started successfully."
+                sleep 3
+            else
+                print_error "Failed to start Docker with service command."
+                print_error "Please run: ${USE_SUDO}service docker start"
+                exit 1
+            fi
+        else
+            print_error "Could not determine how to start Docker on this system."
+            print_error "Please start Docker manually and try again."
+            print_error "Common commands:"
+            print_error "  ${USE_SUDO}systemctl start docker    # SystemD (Arch, Ubuntu, CentOS 7+)"
+            print_error "  ${USE_SUDO}service docker start      # SysV init"
+            print_error ""
+            print_error "To avoid using sudo, add your user to docker group:"
+            print_error "  sudo usermod -aG docker \$USER && newgrp docker"
+            exit 1
+        fi
+        
+        # Verify Docker is now running
+        if ! docker info >/dev/null 2>&1; then
+            print_error "Docker still not responding after start attempt."
+            print_error "Please check Docker installation and try manually starting it."
+            exit 1
+        fi
     fi
+    
+    print_success "Docker is running."
 }
 
 # Function to check if .env file exists
@@ -55,13 +109,13 @@ check_env() {
 create_directories() {
     print_status "Creating necessary directories..."
     # Create backup directory in user's specified location
-    mkdir -p "/Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup"
+    mkdir -p "/home/lailaolab/Documents/phajay/phajay-file-backup"
     # Create sync data directory
     mkdir -p docker-data/data
     # Create logs directory
     mkdir -p logs
     print_success "Directories created."
-    print_status "Backup files will be saved to: /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup"
+    print_status "Backup files will be saved to: /home/lailaolab/Documents/phajay/phajay-file-backup"
 }
 
 # Function to build the Docker image
@@ -138,12 +192,12 @@ shell() {
 
 # Function to show backup files
 list_backup_files() {
-    print_status "Backup files in /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup:"
-    if [ -d "/Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup" ]; then
-        ls -la "/Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup"
+    print_status "Backup files in /home/lailaolab/Documents/phajay/phajay-file-backup:"
+    if [ -d "/home/lailaolab/Documents/phajay/phajay-file-backup" ]; then
+        ls -la "/home/lailaolab/Documents/phajay/phajay-file-backup"
         echo ""
-        print_status "Total backup files: $(find /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup -type f | wc -l | xargs)"
-        print_status "Total backup size: $(du -sh /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup 2>/dev/null | cut -f1 || echo 'N/A')"
+        print_status "Total backup files: $(find /home/lailaolab/Documents/phajay/phajay-file-backup -type f | wc -l | xargs)"
+        print_status "Total backup size: $(du -sh /home/lailaolab/Documents/phajay/phajay-file-backup 2>/dev/null | cut -f1 || echo 'N/A')"
     else
         print_warning "Backup directory does not exist yet."
     fi
