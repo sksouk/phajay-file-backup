@@ -53,7 +53,19 @@ check_docker() {
             print_status "Starting Docker with systemctl..."
             if ${USE_SUDO}systemctl start docker; then
                 print_success "Docker started successfully."
-                sleep 3  # Wait for Docker to fully initialize
+                print_status "Waiting for Docker daemon to initialize..."
+                sleep 5  # Wait longer for Docker to fully initialize
+                
+                # Retry mechanism - wait up to 30 seconds for Docker to respond
+                for i in {1..6}; do
+                    if docker info >/dev/null 2>&1; then
+                        print_success "Docker daemon is responding."
+                        break
+                    else
+                        print_status "Waiting for Docker daemon... (attempt $i/6)"
+                        sleep 5
+                    fi
+                done
             else
                 print_error "Failed to start Docker with systemctl."
                 print_error "Please run: ${USE_SUDO}systemctl start docker"
@@ -65,7 +77,19 @@ check_docker() {
             print_status "Starting Docker with service command..."
             if ${USE_SUDO}service docker start; then
                 print_success "Docker started successfully."
-                sleep 3
+                print_status "Waiting for Docker daemon to initialize..."
+                sleep 5
+                
+                # Retry mechanism for SysV init too
+                for i in {1..6}; do
+                    if docker info >/dev/null 2>&1; then
+                        print_success "Docker daemon is responding."
+                        break
+                    else
+                        print_status "Waiting for Docker daemon... (attempt $i/6)"
+                        sleep 5
+                    fi
+                done
             else
                 print_error "Failed to start Docker with service command."
                 print_error "Please run: ${USE_SUDO}service docker start"
