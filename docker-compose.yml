@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  s3-backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phajay-s3-backup
+    restart: unless-stopped
+    environment:
+      # AWS Configuration
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-ap-southeast-1}
+      
+      # S3 Configuration
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-phapay-bucket}
+      - S3_PREFIX=${S3_PREFIX:-images/}
+      
+      # Local Configuration
+      - LOCAL_BACKUP_PATH=/app/backup
+      - LAST_SYNC_FILE=/app/data/last_sync.json
+      
+      # Schedule (at 00:00, 06:00, 12:00, 18:00 daily)
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 0,6,12,18 * * *}
+      
+      # Log level
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      
+      # Timezone
+      - TZ=Asia/Bangkok
+    volumes:
+      # Persist backup files to host directory
+      - /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup:/app/backup
+      # Persist sync tracking data
+      - sync_data:/app/data
+      # Optional: Mount logs directory
+      - ./logs:/app/logs
+    networks:
+      - backup-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "const service = require('./S3BackupService'); const s = new service(); s.testConnection().then(ok => process.exit(ok ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  sync_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/docker-data/data
+
+networks:
+  backup-network:
+    driver: bridge

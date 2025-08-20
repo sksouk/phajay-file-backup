@@ -1,0 +1,31 @@
+{
+  "name": "phajay-file-backup",
+  "version": "1.0.0",
+  "description": "Automated S3 file backup service that downloads new files every 6 hours",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "backup": "node backup-now.js",
+    "backup-now": "node backup-now.js",
+    "docker:build": "./docker-manage.sh build",
+    "docker:start": "./docker-manage.sh start",
+    "docker:stop": "./docker-manage.sh stop",
+    "docker:logs": "./docker-manage.sh logs",
+    "docker:status": "./docker-manage.sh status",
+    "docker:backup": "./docker-manage.sh backup-now",
+    "docker:list-files": "./docker-manage.sh list-files"
+  },
+  "keywords": ["aws", "s3", "backup", "nodejs"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1600.0",
+    "fs-extra": "^11.2.0",
+    "dotenv": "^16.4.5",
+    "cron": "^3.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

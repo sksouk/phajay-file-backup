@@ -1,0 +1,33 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts should have Unix line endings
+*.sh text eol=lf
+
+# Docker files
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+.dockerignore text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+
+# JSON files
+*.json text eol=lf
+
+# JavaScript files
+*.js text eol=lf
+
+# Environment files
+.env* text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary

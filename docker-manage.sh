@@ -1,0 +1,261 @@
+#!/bin/bash
+
+# S3 Backup Docker Management Script
+# Usage: ./docker-manage.sh [command]
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Project name
+PROJECT_NAME="phajay-backup"
+
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to check if Docker is running
+check_docker() {
+    if ! docker info >/dev/null 2>&1; then
+        print_error "Docker is not running. Please start Docker first."
+        exit 1
+    fi
+}
+
+# Function to check if .env file exists
+check_env() {
+    if [ ! -f .env ]; then
+        print_warning ".env file not found. Creating from .env.docker template..."
+        cp .env.docker .env
+        print_warning "Please edit .env file with your AWS credentials before starting the service."
+        return 1
+    fi
+    return 0
+}
+
+# Function to create necessary directories
+create_directories() {
+    print_status "Creating necessary directories..."
+    # Create backup directory in user's specified location
+    mkdir -p "/Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup"
+    # Create sync data directory
+    mkdir -p docker-data/data
+    # Create logs directory
+    mkdir -p logs
+    print_success "Directories created."
+    print_status "Backup files will be saved to: /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup"
+}
+
+# Function to build the Docker image
+build() {
+    print_status "Building Docker image..."
+    docker-compose build
+    print_success "Docker image built successfully."
+}
+
+# Function to start the service
+start() {
+    check_docker
+    if ! check_env; then
+        print_error "Please configure .env file first."
+        exit 1
+    fi
+    
+    create_directories
+    print_status "Starting S3 Backup service..."
+    docker-compose up -d
+    print_success "S3 Backup service started."
+    
+    # Show logs for a few seconds
+    sleep 2
+    print_status "Recent logs:"
+    docker-compose logs --tail=20
+}
+
+# Function to stop the service
+stop() {
+    print_status "Stopping S3 Backup service..."
+    docker-compose down
+    print_success "S3 Backup service stopped."
+}
+
+# Function to restart the service
+restart() {
+    stop
+    start
+}
+
+# Function to show logs
+logs() {
+    if [ "$2" = "-f" ] || [ "$2" = "--follow" ]; then
+        docker-compose logs -f
+    else
+        docker-compose logs --tail=50
+    fi
+}
+
+# Function to show service status
+status() {
+    print_status "Service status:"
+    docker-compose ps
+    
+    print_status "Container logs (last 10 lines):"
+    docker-compose logs --tail=10
+    
+    print_status "Container health:"
+    docker inspect --format='{{.State.Health.Status}}' phajay-s3-backup 2>/dev/null || echo "Health check not available"
+}
+
+# Function to run backup manually
+backup_now() {
+    print_status "Running manual backup..."
+    docker-compose exec s3-backup npm run backup
+}
+
+# Function to get shell access
+shell() {
+    print_status "Opening shell in container..."
+    docker-compose exec s3-backup sh
+}
+
+# Function to show backup files
+list_backup_files() {
+    print_status "Backup files in /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup:"
+    if [ -d "/Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup" ]; then
+        ls -la "/Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup"
+        echo ""
+        print_status "Total backup files: $(find /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup -type f | wc -l | xargs)"
+        print_status "Total backup size: $(du -sh /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup 2>/dev/null | cut -f1 || echo 'N/A')"
+    else
+        print_warning "Backup directory does not exist yet."
+    fi
+}
+
+# Function to show backup status
+backup_status() {
+    print_status "Backup status:"
+    docker-compose exec s3-backup node -e "
+        const S3BackupService = require('./S3BackupService');
+        const service = new S3BackupService();
+        service.getStatus().then(status => {
+            console.log('Last Sync:', status.lastSync || 'Never');
+            console.log('Total Files in S3:', status.totalFilesInS3);
+            console.log('Files Downloaded:', status.totalDownloaded);
+            console.log('Pending Files:', status.pendingFiles);
+            console.log('Local Backup Path:', status.localBackupPath);
+            if (status.stats) {
+                console.log('Stats:', JSON.stringify(status.stats, null, 2));
+            }
+        }).catch(err => console.error('Error:', err.message));
+    "
+}
+
+# Function to clean up
+cleanup() {
+    print_warning "This will remove all containers, images, and volumes. Continue? (y/N)"
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        print_status "Cleaning up..."
+        docker-compose down -v --rmi all
+        docker volume prune -f
+        print_success "Cleanup completed."
+    else
+        print_status "Cleanup cancelled."
+    fi
+}
+
+# Function to show help
+show_help() {
+    echo "S3 Backup Docker Management Script"
+    echo ""
+    echo "Usage: $0 [command]"
+    echo ""
+    echo "Commands:"
+    echo "  build         Build the Docker image"
+    echo "  start         Start the backup service"
+    echo "  stop          Stop the backup service"
+    echo "  restart       Restart the backup service"
+    echo "  logs [-f]     Show logs (use -f to follow)"
+    echo "  status        Show service status and health"
+    echo "  backup-now    Run manual backup"
+    echo "  backup-status Show current backup status"
+    echo "  list-files    List backup files in host directory"
+    echo "  shell         Open shell in container"
+    echo "  cleanup       Remove all containers, images, and volumes"
+    echo "  help          Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 start"
+    echo "  $0 logs -f"
+    echo "  $0 backup-now"
+    echo "  $0 status"
+}
+
+# Main script logic
+case "${1:-}" in
+    build)
+        check_docker
+        build
+        ;;
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    logs)
+        logs "$@"
+        ;;
+    status)
+        status
+        ;;
+    backup-now)
+        backup_now
+        ;;
+    backup-status)
+        backup_status
+        ;;
+    list-files)
+        list_backup_files
+        ;;
+    shell)
+        shell
+        ;;
+    cleanup)
+        cleanup
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    "")
+        print_error "No command specified."
+        show_help
+        exit 1
+        ;;
+    *)
+        print_error "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac
