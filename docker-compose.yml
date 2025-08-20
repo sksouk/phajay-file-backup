@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: phajay-s3-backup
     restart: unless-stopped
+    user: "1001:1001"  # Use nodejs user ID
     environment:
       # AWS Configuration
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
@@ -30,8 +31,8 @@ services:
       # Timezone
       - TZ=Asia/Bangkok
     volumes:
-      # Persist backup files to host directory
-      - /home/lailaolab/Documents/phajay/phajay-file-backup:/app/backup
+      # Persist backup files to host directory (with proper permissions)
+      - /home/lailaolab/Documents/phajay/phajay-file-backup:/app/backup:rw
       # Persist sync tracking data
       - sync_data:/app/data
       # Optional: Mount logs directory

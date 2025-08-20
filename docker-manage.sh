@@ -172,13 +172,36 @@ check_env() {
 create_directories() {
     print_status "Creating necessary directories..."
     # Create backup directory in user's specified location
-    mkdir -p "/home/lailaolab/Documents/phajay/phajay-file-backup"
+    BACKUP_DIR="/home/lailaolab/Documents/phajay/phajay-file-backup"
+    mkdir -p "$BACKUP_DIR"
+    
+    # Set proper permissions for the backup directory
+    # Make it writable by container user (UID 1001)
+    chmod 755 "$BACKUP_DIR"
+    
+    # If running as root or with sudo, change ownership
+    if [ "$EUID" -eq 0 ] || sudo -n true 2>/dev/null; then
+        print_status "Setting proper ownership for backup directory..."
+        # Change ownership to container user (1001:1001)
+        chown -R 1001:1001 "$BACKUP_DIR" 2>/dev/null || {
+            print_warning "Could not change ownership. Files may have permission issues."
+            print_status "To fix, run: sudo chown -R 1001:1001 $BACKUP_DIR"
+        }
+    else
+        # If not root, at least ensure the directory is world-writable
+        chmod 777 "$BACKUP_DIR"
+        print_warning "Running without sudo. Setting directory as world-writable."
+        print_status "For better security, run: sudo chown -R 1001:1001 $BACKUP_DIR"
+    fi
+    
     # Create sync data directory
     mkdir -p docker-data/data
     # Create logs directory
     mkdir -p logs
+    chmod 755 logs
+    
     print_success "Directories created."
-    print_status "Backup files will be saved to: /home/lailaolab/Documents/phajay/phajay-file-backup"
+    print_status "Backup files will be saved to: $BACKUP_DIR"
 }
 
 # Function to build the Docker image

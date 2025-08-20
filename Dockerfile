@@ -13,8 +13,8 @@ RUN npm ci --only=production
 # Copy source code
 COPY . .
 
-# Create backup directory
-RUN mkdir -p backup
+# Create backup directory with proper permissions
+RUN mkdir -p backup && chmod 755 backup
 
 # Create a non-root user for security
 RUN addgroup -g 1001 -S nodejs
@@ -22,6 +22,9 @@ RUN adduser -S nodejs -u 1001
 
 # Change ownership of the app directory to nodejs user
 RUN chown -R nodejs:nodejs /app
+
+# Ensure backup directory has correct permissions
+RUN chmod -R 755 /app/backup
 
 # Switch to nodejs user
 USER nodejs
