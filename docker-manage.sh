@@ -110,8 +110,47 @@ check_docker() {
         # Verify Docker is now running
         if ! docker info >/dev/null 2>&1; then
             print_error "Docker still not responding after start attempt."
-            print_error "Please check Docker installation and try manually starting it."
-            exit 1
+            print_warning "Attempting additional troubleshooting steps..."
+            
+            # Try to fix common Docker issues on Linux
+            print_status "Checking Docker socket permissions..."
+            if [ -S /var/run/docker.sock ]; then
+                print_status "Docker socket exists. Checking permissions..."
+                ls -la /var/run/docker.sock
+                
+                print_status "Attempting to fix socket permissions..."
+                ${USE_SUDO}chmod 666 /var/run/docker.sock 2>/dev/null || true
+            fi
+            
+            # Try to start docker.socket service
+            print_status "Starting Docker socket service..."
+            ${USE_SUDO}systemctl start docker.socket 2>/dev/null || true
+            
+            # Try restart instead of start
+            print_status "Attempting Docker restart..."
+            ${USE_SUDO}systemctl restart docker 2>/dev/null || true
+            
+            # Wait and try again
+            sleep 5
+            
+            if docker info >/dev/null 2>&1; then
+                print_success "Docker is now responding after troubleshooting!"
+            else
+                print_error "Docker still not responding. Manual intervention required."
+                print_error ""
+                print_error "Please try these commands manually:"
+                print_error "  ${USE_SUDO}systemctl status docker"
+                print_error "  ${USE_SUDO}systemctl restart docker"
+                print_error "  ${USE_SUDO}systemctl start docker.socket"
+                print_error "  ${USE_SUDO}chmod 666 /var/run/docker.sock"
+                print_error "  ${USE_SUDO}journalctl -u docker.service -f"
+                print_error ""
+                print_error "Common fixes:"
+                print_error "  1. Add user to docker group: sudo usermod -aG docker \$USER && newgrp docker"
+                print_error "  2. Check if virtualization is enabled in BIOS"
+                print_error "  3. Restart system if Docker was just installed"
+                exit 1
+            fi
         fi
     fi
     
