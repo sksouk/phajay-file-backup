@@ -31,7 +31,7 @@ services:
       - TZ=Asia/Bangkok
     volumes:
       # Persist backup files to host directory
-      - /Users/sksouk/Documents/LailaolabDocuments/phajay-file-backup:/app/backup
+      - /home/lailaolab/Documents/phajay/phajay-file-backup:/app/backup
       # Persist sync tracking data
       - sync_data:/app/data
       # Optional: Mount logs directory
