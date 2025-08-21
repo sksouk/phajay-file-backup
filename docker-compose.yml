@@ -15,7 +15,7 @@ services:
       - AWS_REGION=${AWS_REGION:-ap-southeast-1}
       
       # S3 Configuration
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-phapay-bucket}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-lailaopayment-bucket}
       - S3_PREFIX=${S3_PREFIX:-images/}
       
       # Local Configuration

@@ -106,7 +106,7 @@ AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_REGION=ap-southeast-1
 
 # Required S3 Configuration
-S3_BUCKET_NAME=phapay-bucket
+S3_BUCKET_NAME=lailaopayment-bucket
 S3_PREFIX=images/
 
 # Optional: Backup Schedule (cron format)
